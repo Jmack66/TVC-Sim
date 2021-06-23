@@ -31,25 +31,25 @@ class threeDofPhysics():
 		self.state_vector["theta"] += self.state_vector["omega"] * dt
 		return self.state_vector
 	#maybe eventually replace this with an "Actuator" class or something that can command stuff
-	def tvcPhysics(self,input_angle,thrust,com2TVC,actuator_limit,rate_limit,dt,print_warnings = False): #angle in rads
-		if input_angle > actuator_limit:
-			input_angle = actuator_limit
+	def tvcPhysics(self,input_angle,thrust,vehicle,dt,print_warnings = False): #angle in rads
+		if input_angle > vehicle.servo_lim:
+			input_angle = vehicle.servo_lim
 			print("WARNING: Acuator Limit Reached") if print_warnings else None
-		if input_angle < - actuator_limit:
-			input_angle = -actuator_limit
+		if input_angle < - vehicle.servo_lim:
+			input_angle = -vehicle.servo_lim
 			print("WARNING: Acuator Limit Reached") if print_warnings else None
 		if self.input_last is None:
 			self.input_last = input_angle 
 		servo_rate = (self.input_last - input_angle) / dt
-		if servo_rate > rate_limit:
-			input_angle = self.input_last - rate_limit*dt
+		if servo_rate > vehicle.servo_rate_lim:
+			input_angle = self.input_last - vehicle.servo_rate_lim*dt
 			print("WARNING: Acuator Rate Limit Reached") if print_warnings else None
-		if servo_rate < -rate_limit:
-			input_angle = self.input_last + rate_limit*dt
+		if servo_rate < -vehicle.servo_rate_lim:
+			input_angle = self.input_last + vehicle.servo_rate_lim*dt
 			print("WARNING: Acuator Rate Limit Reached") if print_warnings else None
 		Fz = np.sin(self.state_vector["theta"])*np.sin(input_angle) * thrust
 		Fx = np.cos(self.state_vector["theta"])*np.cos(input_angle) * thrust
-		Tau = np.sin(input_angle) * thrust * com2TVC
+		Tau = np.sin(input_angle) * thrust * vehicle.com2TVC
 		self.actuator_state = input_angle
 		self.input_last = input_angle
 		return [Fx,Fz,Tau]

@@ -3,7 +3,7 @@ import time
 import PID as pid
 import Graphics as gh
 import Physics as phys
-
+import rocketConfig
 #Units are SI units... m/s/radians/kg
 
 time_ret = []
@@ -23,16 +23,16 @@ graphics.graphsHandler(3,graphs_dict) #number of graphs and their labels
 rocket = graphics.createAgent('black')
 targe = graphics.createAgent('red')
 
-MASS = 1 #kg
-MMOI = 0.1 #kg m^2
+vehicle = rocketConfig.vehicleProperties(1,0.1,0.5,np.deg2rad(15),np.deg2rad(150))
+#mass(kg),mmoi(kg m^2),com2TVC(meters),servo_lim(rad),servo_rate_lim(rad/s)
+
 THRUST = 12 # Newtons
-COM2TVC = 0.5 # meters
-SERVO_LIMIT = 15 #degrees
+
 
 #initial state vector
 state_vector = {"ax" : 0 ,"vx" : 0,"px" : 0,"az" : 0 ,"vz" : 1,"pz" : 0 ,"alpha" : 0.0,"omega" : 0.5,"theta" : 0.0}
 
-rocket_phys = phys.threeDofPhysics(state_vector,MASS,MMOI)
+rocket_phys = phys.threeDofPhysics(state_vector,vehicle.mass,vehicle.mmoi)
 
 #Controller setup
 controller = pid.PID(0.07,0.01,0.01,0) #KP,KI,KD,setpoint
@@ -49,7 +49,7 @@ if __name__ == "__main__":
 	while(sim_time < time_lim):
 
 		#Physics
-		forces = rocket_phys.tvcPhysics(tvc_input,THRUST,COM2TVC, np.deg2rad(SERVO_LIMIT),np.deg2rad(150),delta_t) # Compute Forces	from TVC	
+		forces = rocket_phys.tvcPhysics(tvc_input,THRUST,vehicle,delta_t) # Compute Forces	from TVC	
 		rocket_phys.inputForces(forces,delta_t) # Apply Forces to body	
 		graphics.moveAgent(rocket,rocket_phys.state_vector["pz"],rocket_phys.state_vector["px"])# Update Graphics and Plots
 		graphics.rotateAgent(rocket,rocket_phys.state_vector["theta"])
