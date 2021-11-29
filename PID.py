@@ -19,7 +19,7 @@ class PID():
 		if output > self.saturation_max and self.saturation_max is not None:
 			output = self.saturation_max
 		elif output < self.saturation_min and self.saturation_min is not None:
-			output = self.saturation_max
+			output = self.saturation_min
 		return output
 	def setLims(self,min,max):
 		self.saturation_max = max
