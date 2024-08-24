@@ -1,61 +1,118 @@
 import numpy as np
-#input_force_vector = [Fx,Fz,Tau]
-'''
-		X+
-		|
-		|<=
-		|	=
-		| = Theta
-		----------Z+
 
-'''
-class threeDofPhysics():
-	def __init__(self,initial_state_vector,mass,mmoi):
-		self.state_vector = initial_state_vector
-		self.mass = mass
-		self.mmoi = mmoi
-		self.input_last = None
-		self.actuator_state = []
-	def inputForces(self,input_force_vector,dt,internal_gravity = True,negative_x_pos = False):
-		G = -9.18 if internal_gravity else 0
-		self.state_vector["ax"] = (input_force_vector[0] / self.mass) + G
-		self.state_vector["az"] = input_force_vector[1] / self.mass
-		self.state_vector["alpha"] = input_force_vector[2] / self.mmoi
-		self.state_vector["vx"] += self.state_vector["ax"] * dt
-		self.state_vector["vz"] += self.state_vector["az"] * dt
-		self.state_vector["omega"] += self.state_vector["alpha"] * dt
-		self.state_vector["px"] += self.state_vector["vx"] * dt
-		if negative_x_pos and self.state_vector["px"] < 0:
-			self.state_vector["px"] = 0
-		self.state_vector["pz"] += self.state_vector["vz"] * dt
-		self.state_vector["theta"] += self.state_vector["omega"] * dt
-		return self.state_vector
-	#maybe eventually replace this with an "Actuator" class or something that can command stuff
-	def tvcPhysics(self,input_angle,thrust,vehicle,dt,print_warnings = False): #angle in rads
-		if input_angle > vehicle.servo_lim:
-			input_angle = vehicle.servo_lim
-			print("WARNING: Acuator Limit Reached") if print_warnings else None
-		if input_angle < - vehicle.servo_lim:
-			input_angle = -vehicle.servo_lim
-			print("WARNING: Acuator Limit Reached") if print_warnings else None
-		if self.input_last is None:
-			self.input_last = input_angle 
-		servo_rate = (self.input_last - input_angle) / dt
-		if servo_rate > vehicle.servo_rate_lim:
-			input_angle = self.input_last - vehicle.servo_rate_lim*dt
-			print("WARNING: Acuator Rate Limit Reached") if print_warnings else None
-		if servo_rate < -vehicle.servo_rate_lim:
-			input_angle = self.input_last + vehicle.servo_rate_lim*dt
-			print("WARNING: Acuator Rate Limit Reached") if print_warnings else None
-		Fz = np.sin(self.state_vector["theta"])*np.sin(input_angle) * thrust
-		Fx = np.cos(self.state_vector["theta"])*np.cos(input_angle) * thrust
-		Tau = np.sin(input_angle) * thrust * vehicle.com2TVC
-		self.actuator_state = input_angle
-		self.input_last = input_angle
-		return [Fx,Fz,Tau]
+# The following is a simplified physics simulation for a 3-DOF (Degrees of Freedom) system.
+# The system is subject to forces and moments which influence its state over time.
+
+class ThreeDofPhysics:
+    def __init__(self, initial_state, mass, moment_of_inertia):
+        """
+        Initialize the physics simulation with initial conditions.
+
+        Parameters:
+        - initial_state (dict): Initial values of acceleration (ax, az), velocity (vx, vz), position (px, pz),
+                                angular acceleration (alpha), angular velocity (omega), and angle (theta).
+        - mass (float): Mass of the object.
+        - moment_of_inertia (float): Moment of inertia around the rotation axis.
+        """
+        self.state = initial_state
+        self.mass = mass
+        self.moment_of_inertia = moment_of_inertia
+        self.last_input_angle = None
+        self.actuator_state = []
+
+    def apply_forces(self, force_vector, time_step, use_gravity=True, constrain_x_negative=False):
+        """
+        Update the state of the system based on the applied forces.
+
+        Parameters:
+        - force_vector (list): A list containing [Fx, Fz, Tau] where Fx is the force in x-direction,
+                               Fz is the force in z-direction, and Tau is the torque.
+        - time_step (float): Time increment for the simulation.
+        - use_gravity (bool): Whether to include gravitational acceleration.
+        - constrain_x_negative (bool): Whether to prevent negative position in the x-direction.
+
+        Returns:
+        - dict: Updated state vector.
+        """
+        gravity_acceleration = -9.81 if use_gravity else 0
+        self.state["ax"] = (force_vector[0] / self.mass) + gravity_acceleration
+        self.state["az"] = force_vector[1] / self.mass
+        self.state["alpha"] = force_vector[2] / self.moment_of_inertia
+        
+        # Update velocities and positions
+        self.state["vx"] += self.state["ax"] * time_step
+        self.state["vz"] += self.state["az"] * time_step
+        self.state["omega"] += self.state["alpha"] * time_step
+        self.state["px"] += self.state["vx"] * time_step
+        if constrain_x_negative and self.state["px"] < 0:
+            self.state["px"] = 0
+        self.state["pz"] += self.state["vz"] * time_step
+        self.state["theta"] += self.state["omega"] * time_step
+        
+        return self.state
+
+    def calculate_actuator_forces(self, input_angle, thrust, vehicle, time_step, print_warnings=False):
+        """
+        Calculate the forces and torque generated by the actuator based on input angle and thrust.
+
+        Parameters:
+        - input_angle (float): The angle of the actuator in radians.
+        - thrust (float): The thrust force generated by the actuator.
+        - vehicle (object): Vehicle object containing servo limits and rate limits.
+        - time_step (float): Time increment for the simulation.
+        - print_warnings (bool): Whether to print warnings when limits are reached.
+
+        Returns:
+        - list: Calculated forces [Fx, Fz] and torque Tau.
+        """
+        # Constrain input_angle within servo limits
+        if input_angle > vehicle.servo_limit:
+            input_angle = vehicle.servo_limit
+            if print_warnings:
+                print("WARNING: Actuator Limit Reached")
+        if input_angle < -vehicle.servo_limit:
+            input_angle = -vehicle.servo_limit
+            if print_warnings:
+                print("WARNING: Actuator Limit Reached")
+
+        # Rate of change of input angle
+        if self.last_input_angle is None:
+            self.last_input_angle = input_angle 
+        angle_change_rate = (self.last_input_angle - input_angle) / time_step
+        
+        # Constrain angle change rate within servo rate limits
+        if angle_change_rate > vehicle.servo_rate_limit:
+            input_angle = self.last_input_angle - vehicle.servo_rate_limit * time_step
+            if print_warnings:
+                print("WARNING: Actuator Rate Limit Reached")
+        if angle_change_rate < -vehicle.servo_rate_limit:
+            input_angle = self.last_input_angle + vehicle.servo_rate_limit * time_step
+            if print_warnings:
+                print("WARNING: Actuator Rate Limit Reached")
+        
+        # Calculate forces and torque
+        Fz = np.sin(self.state["theta"]) * np.sin(input_angle) * thrust
+        Fx = np.cos(self.state["theta"]) * np.cos(input_angle) * thrust
+        torque = np.sin(input_angle) * thrust * vehicle.com_to_tvc
+        
+        # Update actuator state and last input angle
+        self.actuator_state = input_angle
+        self.last_input_angle = input_angle
+        
+        return [Fx, Fz, torque]
 
 if __name__ == "__main__":
-	state_vector = {"ax" : 0 ,"vx" : 0,"px" : 0,"az" : 0 ,"vz" : 0,"pz" : 0 ,"alpha" : 0,"omega" : 0,"theta" : 0}
-	dof = threeDofPhysics(state_vector,1,0.1)
-	for i in range(10):
-		print(dof.inputForces([10,1,1],1))
+    # Define initial state vector with zeros
+    initial_state = {
+        "ax": 0, "vx": 0, "px": 0,
+        "az": 0, "vz": 0, "pz": 0,
+        "alpha": 0, "omega": 0, "theta": 0
+    }
+    
+    # Create a ThreeDofPhysics instance with mass=1 and moment of inertia=0.1
+    physics_simulation = ThreeDofPhysics(initial_state, 1, 0.1)
+    
+    # Apply forces and print the updated state for 10 time steps
+    for _ in range(10):
+        updated_state = physics_simulation.apply_forces([10, 1, 1], 1)
+        print(updated_state)
