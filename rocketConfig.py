@@ -4,8 +4,8 @@ from dataclasses import dataclass
 class vehicleProperties:
 	mass: float
 	mmoi: float
-	com2TVC: float
-	servo_lim: float
-	servo_rate_lim: float
+	com_to_tvc: float
+	servo_limit: float
+	servo_rate_limit: float
 
 
